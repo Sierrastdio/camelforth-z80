@@ -1,3 +1,12 @@
+; 현재 시스템 구성대로 메모리맵 수정한거 반영:
+;-----------------------------------------
+; 4000H~6FFFH : Forth 커널 (ROM에서 복사됨)
+; 8000H~BDFFH : 딕셔너리 (사용자 정의어)
+; BE00H~      : User area
+; BF00H~      : Param stack (아래로 성장)
+; C000H       : EM (RAM 끝, 우리 시스템은 BFFFH가 마지막이므로 C000H를 가상의 EM으로 취급)
+;--------------------------------------------
+;
 ; Listing 2.
 ; ===============================================
 ; CamelForth for the Zilog Z80
@@ -104,17 +113,17 @@ define(ex_sp_de, `
 ; RESET AND INTERRUPT VECTORS ===================
 
 ; RC2014 Entry point
-        org $9000
-reset:  ld hl,$fc00
+        org $4000        ;  RAM 실행 시작 주소 (ROM에서 LDIR로 복사되는 위치)
+reset:  ld hl,$c000      ; EM = 우리 RAM 최상단(BFFFH+1 = C000H)
         dec h        ; EM-100h
         ld sp,hl     ;      = top of param stack
-        inc h        ; EM
+        inc h        ; EM = C000H
         push hl
-        pop ix       ;      = top of return stack
-        dec h        ; EM-200h
+        pop ix       ; return stack 시작 = C000H
+        dec h        ; EM-200h = BE00H
         dec h
         push hl
-        pop iy       ;      = bottom of user area
+        pop iy       ;      = bottom of user area  ->  user area 시작 = BE00H
         ld de,1      ; do reset if COLD returns
         jp COLD      ; enter top-level Forth word
 
@@ -252,47 +261,76 @@ dodoes: ; -- a-addr
 ; TERMINAL I/O ==================================
 
 ;C API1     a c -- a  execute API function
-    head(API1,API1,docode)
-        ex de,hl
-        ex (sp),hl     ; parameter A is in L, DE in TOS
-        ld a,l
-        rst $30
-        ld b,0
-        ld c,a
+;    head(API1,API1,docode)
+;        ex de,hl
+;        ex (sp),hl     ; parameter A is in L, DE in TOS
+;        ld a,l
+;        rst $30
+;        ld b,0
+;        ld c,a
 
-        pop de
-        next
+;        pop de
+;        next
 
 ;C API2     de a c -- a  execute API function
-    head(API2,AP2,docode)
-        pop hl
-        ld a,l
-        ex_sp_de
-        rst $30
-        ld b,0
-        ld c,a
-        pop de
-        next
+;    head(API2,AP2,docode)
+;        pop hl
+;        ld a,l
+;        ex_sp_de
+;        rst $30
+;        ld b,0
+;        ld c,a
+;        pop de
+;        next
+;
+; 이 두 워드는 RC2014 Pico VGA 보드 전용 프로토콜(RST $30 인터럽트 벡터 기반)이라 
+; 우리 하드웨어에선 완전히 불필요합니다. EMIT/KEY를 위에서처럼 직접 IN/OUT으로 재작성했으니, 
+; API1/API2/CPMACCEPT 세 워드는 통째로 삭제하거나 그냥 안 쓰고 두면 됩니다 
+; (링크되지만 호출 안 되므로 무해하나, 딕셔너리 공간 아끼려면 지우는 게 좋음).
+
+
+
 
 ;C EMIT     c --    output character to console
 ;   6 BDOS DROP ;
 ; warning: if c=0ffh, will read one keypress
-    head(EMIT,EMIT,docolon)
-        DW lit,2,API1,DROP,EXIT
+    head(EMIT,EMIT,docode)
+           ld a,c          ; 출력할 문자를 TOS(BC)에서 A로
+    waitemit:
+            in a,($02)      ; 상태 레지스터 포트 읽기
+            bit 1,a         ; TFT_BUSY 비트 확인
+            jr nz,waitemit  ; 바쁘면 대기
+            ld a,c
+            out ($00),a     ; 문자 출력 (포트 00H)
+            pop bc          ; 다음 TOS 팝
+            next
 
 ;X KEY?     -- f    return true if char waiting
 ;   0FF 6 BDOS DUP SAVEKEY C! ;   rtns 0 or key
 ; must use BDOS function 6 to work with KEY
-    head(QUERYKEY,KEY?,docolon)
-        DW lit,0,EXIT
+    head(QUERYKEY,KEY?,docode)
+            push bc
+            in a,($02)
+            and 1
+            ld c,a
+            ld b,0
+            next
 
 ;C KEY      -- c    get character from keyboard
 ;   BEGIN SAVEKEY C@ 0= WHILE KEY? DROP REPEAT
 ;   SAVEKEY C@  0 SAVEKEY C! ;
 ; must use CP/M direct console I/O to avoid echo
 ; (BDOS function 6, contained within KEY?)
-    head(KEY,KEY,docolon)
-        DW lit,0,lit,1,API1,EXIT
+    head(KEY,KEY,docode)
+            push bc          ; 옛 TOS 보존
+    waitkey:
+            in a,($02)       ; 상태 레지스터
+            bit 0,a          ; KEY_READY 비트
+            jr z,waitkey     ; 준비 안됐으면 대기
+            in a,($01)       ; 키 데이터 포트에서 읽기
+            ld c,a
+            ld b,0
+            next
 
 dnl ;Z CPMACCEPT  c-addr +n -- +n'  get line of input
 dnl ;   SWAP 2 - TUCK C!      max # of characters
@@ -302,10 +340,16 @@ dnl ; Note: requires the two locations before c-addr
 dnl ; to be available for use.
     head(CPMACCEPT,CPMACCEPT,docolon)
         DW lit,4,API2,EXIT
+; 이건 줄 입력(line editing) 전체를 Pico VGA보드에 통째로 위임하는 방식입니다.
+; (원본은 CP/M BDOS 함수10, RC2014판은 API함수4). 이건 우리 하드웨어에서 그대로 쓸 필요 없습니다.
+; 앞서 H파일에서 본 표준 ACCEPT(KEY+EMIT만으로 구현된 버전)가 이미 완전하니, 
+; QUIT 안에서 CPMACCEPT 대신 표준 ACCEPT를 쓰도록 되돌리는 게 더 간단합니다.
 
 ;X BYE     i*x --    return to CP/M
     head(BYE,BYE,docode)
         jp 0
+; jp 0은 CP/M 워프인데, 우리 시스템에선 0000H가 ROM 부트로더라 오히려 이게 "재부팅"처럼 동작합니다. 
+; 의도치 않게 딱 맞아떨어지니 그대로 둬도 되고, 원하시면 이 워드를 지워도 무방합니다.
 
 ; STACK OPERATIONS ==============================
 
