@@ -2,4 +2,4 @@ camel80
 camel80.asm
 camel80.lis
 camel80.o
-camel80.rom
+#camel80.rom
