@@ -1,6 +1,5 @@
 \ =====================================================
-\ Quad Polynomial Library
-\ p(x)=ax²+bx+c
+\ p(x) = A*x^2 + B*x + C   (저장 순서: addr=A, addr+8=B, addr+16=C)
 \ =====================================================
 
 3 CELLS CONSTANT QUAD_BYTES
@@ -9,156 +8,79 @@ CREATE P1 QUAD_BYTES ALLOT
 CREATE P2 QUAD_BYTES ALLOT
 CREATE PR QUAD_BYTES ALLOT
 
+\ ---------- 필드 접근용 헬퍼 (addr -- n / addr n -- ) ----------
+: A@ ( addr -- a )        @ ;
+: B@ ( addr -- b )        CELL+ @ ;
+: C@ ( addr -- c )        2 CELLS + @ ;
+: A! ( n addr -- )        ! ;
+: B! ( n addr -- )        CELL+ ! ;
+: C! ( n addr -- )        2 CELLS + ! ;
 
 : QUAD-CLEAR ( addr -- )
     QUAD_BYTES ERASE ;
 
-
 : QUAD-SET ( c b a addr -- )
-
-    >R              \ addr을 리턴 스택으로 옮김.
-
-    R@          !   \ 리턴스택에 있는 addr을 '복사'해서 가져와 c를 addr 값 위치에 저장함.
-    R@ CELL+    !   \ addr을 또 복사해서 가져옴. 그  addr에 1CELLS만큼 더해서 하나의 스택으로 만듦(addr+8). [a,b,(addr+8)]
-                    \ 그리고 b값을 addr로부터 +8인위치에 저장시킴. a,b가 8비트라는 크기 가정하에 b의 주소는 바로 옆(다음)이 됨.
-                    \ 이 줄을 마친 스택은 D[a] R[addr] 상태.
-    R> 2 CELLS + !  \ 이제 리턴스택의 남은 addr을 '가져와서' c가 a위치의 2CELLS 만큼, 즉 b 바로 옆에 저장되도록 함.
-;
-
+    \ 원래 코드와 동일한 저장 순서 유지: top(a)->addr, b->addr+8, c->addr+16
+    DUP >R
+    A!          \ a를 addr에 저장 (스택은 A! 안에서 addr 소비하므로 재사용 위해 DUP>R)
+    R@ B!
+    R> C! ;
 
 : QUAD-PRINT ( addr -- )
-    \ @ 연산자는 최상위 스택 값을 메모리 주소로 해석하여 해당 주소에 저장된 값을 읽어오고, 기존의 주소값을 읽어온 데이터 값으로 교체한다.
-    DUP @ .         \ addr을 복사하여 addr 주소에 저장된  값을 읽어옴.==> a 값을 읽는거임 -> D[addr, a]이 된다음 맨위 a를 꺼내 밖으로 출력함. 따라서 D[addr]이 된 상태.
-    DUP CELL+ @ .   \ D[addr, (addr+8)] 이 되고 addr+8의 위치인 b가 있는곳의 값, 즉 b값을 읽어온다음 이를 출력. 따라서 D[addr]이 된 상태.
-    2 CELLS + @ .   \ D[(addr+16)] 되고 addr+16의 위치인 c가 있는곳의 값, 즉 c값을 읽어온다음 이를 출력. 따라서 D[없음].
-    CR              \ 줄바꿈 실행.
-;
+    DUP  A@ .
+    DUP  B@ .
+    C@ .
+    CR ;
 
+\ ---------- 다항식 사칙연산: 이름 있는 변수만 사용 ----------
+VARIABLE OP1        \ 피연산자1 주소
+VARIABLE OP2        \ 피연산자2 주소
+VARIABLE OPR        \ 결과 저장 주소
 
 : QUAD-ADD ( p1 p2 pr -- )
-    \ note: OVER 연산자는 두번째 스택 값을 복사해서 맨 위에 올림.
-
-    >R              \ D[p1, p2] R[pr]
-
-    \ a
-    OVER @          \ D[p1, p2, p1] 이 된후 p1 주소에 있는 데이터값을 읽어와서 맨 위 스택으로 교체함. 최종 D[p1, p2, a1] R[pr]
-    OVER @          \ D[p1, p2, a1, p2] 이 된후  p2 주소에 있는 데이터 값을 읽어와서 맨 위 스택으로 교체함. 최종  D[p1, p2, a1, a2] R[pr] 
-    +               \ 첫번째 OVER @의 최상위 a1값과 두번째 OVER @의 최상위 값 a2를 더함 -> a1 + a2 그리고 D[p1, p2, (a1+a2)] R[pr]
-    R@ !            \ pr을 복사해와 D[p1, p2, (a1+a2), pr] 이 된다음 pr의 값 위치에 a1+a2를 저장함. 최종: D[p1, p2] R[pr]
-
-    \ b
-    OVER CELL+ @
-    OVER CELL+ @
-    +
-    R@ CELL+ !
-
-    \ c
-    SWAP
-    2 CELLS + @
-
-    SWAP
-    2 CELLS + @
-
-    +
-
-    R>
-    2 CELLS +
-    !
-;
-
+    OPR ! OP2 ! OP1 !                   \ OPR! = 최상단인 pr을 꺼내 OPR에 저장. 스택엔 p1, p2만 남음.
+    OP1 @ A@  OP2 @ A@  +  OPR @ A!
+    OP1 @ B@  OP2 @ B@  +  OPR @ B!
+    OP1 @ C@  OP2 @ C@  +  OPR @ C! ;
 
 : QUAD-SUB ( p1 p2 pr -- )
+    OPR ! OP2 ! OP1 !
+    OP1 @ A@  OP2 @ A@  -  OPR @ A!
+    OP1 @ B@  OP2 @ B@  -  OPR @ B!
+    OP1 @ C@  OP2 @ C@  -  OPR @ C! ;
 
-    >R
-
-    \ a
-    OVER @
-    OVER @
-    -
-    R@ !
-
-    \ b
-    OVER CELL+ @
-    OVER CELL+ @
-    -
-    R@ CELL+ !
-
-    \ c
-    SWAP
-    2 CELLS + @
-
-    SWAP
-    2 CELLS + @
-
-    -
-
-    R>
-    2 CELLS +
-    !
-;
-
+VARIABLE SCALE-N
 
 : QUAD-MUL-SCALAR ( p1 n pr -- )
-
-    >R
-
-    OVER @
-    OVER *
-    R@ !
-
-    OVER CELL+ @
-    OVER *
-    R@ CELL+ !
-
-    SWAP
-    2 CELLS + @
-
-    SWAP
-    *
-
-    R>
-    2 CELLS +
-    !
-;
-
+    OPR ! SCALE-N ! OP1 !
+    OP1 @ A@  SCALE-N @  *  OPR @ A!
+    OP1 @ B@  SCALE-N @  *  OPR @ B!
+    OP1 @ C@  SCALE-N @  *  OPR @ C! ;
 
 \ =====================================================
-\ (ax²+bx+c)/(dx+e)
+\ (ax^2+bx+c) / (dx+e)  =  q1*x + q0  ... remainder
+\ q1 = a / d
+\ q0 = (b - q1*e) / d
+\ rem = c - q0*e
 \ =====================================================
+
+VARIABLE DIV-D       \ 나누는 식의 d
+VARIABLE DIV-E       \ 나누는 식의 e
+VARIABLE Q1          \ 몫의 x 계수
+VARIABLE Q0          \ 몫의 상수항
+VARIABLE REM         \ 나머지
 
 : QUAD-DIV ( p1 d e -- )
+    DIV-E ! DIV-D ! OP1 !
 
-    >R               \ e
-    >R               \ d
+    OP1 @ A@  DIV-D @  /  Q1 !
 
-    DUP @
-    R@ /
-    DUP              \ q1
+    OP1 @ B@  Q1 @  DIV-E @  *  -  DIV-D @  /  Q0 !
 
-    OVER CELL+ @
-    SWAP
-    R@ *
-    -
-    R@ /
-    DUP              \ q0
+    OP1 @ C@  Q0 @  DIV-E @  *  -  REM !
 
-    ROT
-    2 CELLS + @
-    SWAP
-    R> *
-    -
-    R> -
-    
-    ." Quotient : "
-    SWAP .
-    .
-
-    CR
-
-    ." Remainder : "
-    .
-    CR
-;
+    ." Quotient : "  Q1 @ .  Q0 @ .  CR
+    ." Remainder : " REM @ . CR ;
 
 
 : TEST-QUAD
@@ -168,26 +90,23 @@ CREATE PR QUAD_BYTES ALLOT
     2 7 6 P1 QUAD-SET
     1 3 2 P2 QUAD-SET
 
-    ." P1 = "
-    P1 QUAD-PRINT
-
-    ." P2 = "
-    P2 QUAD-PRINT
+    ." P1 = " P1 QUAD-PRINT
+    ." P2 = " P2 QUAD-PRINT
 
     P1 P2 PR QUAD-ADD
-    ." ADD = "
-    PR QUAD-PRINT
+    ." ADD = " PR QUAD-PRINT
 
     P1 P2 PR QUAD-SUB
-    ." SUB = "
-    PR QUAD-PRINT
+    ." SUB = " PR QUAD-PRINT
 
     2 7 6 P1 QUAD-SET
 
     P1 2 PR QUAD-MUL-SCALAR
-    ." SCALE = "
-    PR QUAD-PRINT
+    ." SCALE = " PR QUAD-PRINT
 
-    ." DIVIDE (2x²+7x+6)/(x+2)" CR
+    ." DIVIDE " P1 QUAD-PRINT  ." / (x+2)" CR
     P1 1 2 QUAD-DIV
 ;
+
+TEST-QUAD
+bye
