@@ -1,8 +1,8 @@
 # my Z80 computer project, 'ZF-1'
 
-This fork repo is to port the camelForth language to my Z80 Computer project. 
-My ROM board is featured 6 of 28C16EEPROM(2KB)s, so I split the compiled binary 
-into six 2KB chunks. 
+This fork repo is to port the camelForth language to my Z80 Computer project. <br>
+My ROM board is featured 6 of 28C16EEPROM(2KB)s, so I split the compiled binary <br>
+into six 2KB chunks. <br>
 My Z-80 Computer(ZF-1)s memory map:
 
 | Address Range | Size | Component |
