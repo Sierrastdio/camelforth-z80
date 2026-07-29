@@ -1,3 +1,21 @@
+# my Z80 computer project, 'ZF-1'
+
+This fork repo is to port the camelForth language to my Z80 Computer project. 
+My ROM board is featured 6 of 28C16EEPROM(2KB)s, so I split the compiled binary 
+into six 2KB chunks. 
+My Z-80 Computer(ZF-1)s memory map:
+
+0000H–07FFH    2KB    EEPROM #1
+0800H–0FFFH    2KB    EEPROM #2
+1000H–17FFH    2KB    EEPROM #3
+1800H–1FFFH    2KB    EEPROM #4
+2000H–27FFH    2KB    EEPROM #5
+2800H–2FFFH    2KB    EEPROM #6
+3000H–3FFFH    4KB    unused
+4000H–BFFFH    32KB   62256 RAM
+C000H–FFFFH    16KB   unused
+
+
 ```powershell
 # 21 00 C0(LD HL,$C000)가 그대로 나오는지 확인.
 $bytes = [System.IO.File]::ReadAllBytes("camel80.rom")
