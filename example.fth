@@ -57,7 +57,7 @@ VARIABLE OPR        \ 결과 저장 주소
     OP1 @ C@  OP2 @ C@  -  OPR @ C! ;
 
 VARIABLE SCALE-N
-
+\ SCLAE-N은 곱할 숫자.
 : QUAD-MUL-SCALAR ( p1 n pr -- )
     OPR ! SCALE-N ! OP1 !
     OP1 @ A@  SCALE-N @  *  OPR @ A!
