@@ -1,4 +1,31 @@
 /*
+ * eeprom-programmer.ino
+ *
+ * Original Work Copyright (c) 2017 Ben Eater
+ * SPDX-License-Identifier: MIT
+ *
+ * Modified Work Copyright (c) 2026 Sierrastdio
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to do so.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ *
+ * ---
+ * This modified file is integrated into a project licensed under GNU GPLv3.
+ */
+
+/*
  * 28C16 EEPROM 프로그래머 (시리얼, 시작주소/길이 지정 가능)
  * ============================================================
  * 2048바이트 전체를 무조건 0번지부터 쓰는 게 아니라,
