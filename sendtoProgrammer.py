@@ -252,4 +252,5 @@ def main():
 
 
 if __name__ == "__main__":
+    print("rom1은 0x0020부터 쓰는걸로 하기.")
     main()
